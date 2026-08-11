@@ -444,6 +444,25 @@ const migrate = async () => {
       );
     `);
 
+    // ── EXAM RESULTS ───────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exam_results (
+        id           SERIAL PRIMARY KEY,
+        title        VARCHAR(255) NOT NULL,
+        category     VARCHAR(50)  NOT NULL CHECK (category IN ('written', 'oral')),
+        published_at DATE         NOT NULL,
+        is_latest    BOOLEAN      NOT NULL DEFAULT FALSE,
+        file_url     TEXT         NOT NULL,
+        is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
+        created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_exam_results_category  ON exam_results(category);
+      CREATE INDEX IF NOT EXISTS idx_exam_results_active    ON exam_results(is_active);
+      CREATE INDEX IF NOT EXISTS idx_exam_results_published ON exam_results(published_at DESC);
+    `);
+
     await client.query("COMMIT");
     console.log("✅ All migrations completed successfully!");
   } catch (err) {

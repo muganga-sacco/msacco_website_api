@@ -12,6 +12,7 @@ router.use("/settings",         require("./settings.routes"));
 router.use("/dashboard",  require("./dashboard.routes"));
 router.use("/upload",     require("./upload.routes"));
 router.use("/forms",      require("./forms.routes"));
-router.use("/contact",    require("./contact.routes"));
+router.use("/contact",      require("./contact.routes"));
+router.use("/exam-results", require("./examResults.routes"));
 
 module.exports = router;

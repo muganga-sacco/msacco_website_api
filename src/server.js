@@ -81,7 +81,8 @@ app.get("/", (req, res) => {
       guides:   "/api/guides",
       services: "/api/other-services",
       settings: "/api/settings",
-      contact:  "/api/contact",
+      contact:      "/api/contact",
+      examResults:  "/api/exam-results",
     },
   });
 });
