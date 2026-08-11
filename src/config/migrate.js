@@ -14,8 +14,21 @@ const migrate = async () => {
       EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
       DO $$ BEGIN
-        CREATE TYPE product_type AS ENUM ('loan', 'savings');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+        -- Drop stale product_type enum if it has old values (e.g. account_opening)
+        -- Safe to drop here because products table hasn't been created yet in a fresh run
+        IF EXISTS (
+          SELECT 1 FROM pg_enum e
+          JOIN pg_type t ON t.oid = e.enumtypid
+          WHERE t.typname = 'product_type'
+            AND e.enumlabel = 'account_opening'
+        ) THEN
+          DROP TYPE IF EXISTS product_type CASCADE;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'product_type') THEN
+          CREATE TYPE product_type AS ENUM ('loan', 'savings');
+        END IF;
+      END $$;
 
       DO $$ BEGIN
         CREATE TYPE employment_type AS ENUM ('full-time', 'part-time', 'contract', 'internship');
@@ -104,10 +117,7 @@ const migrate = async () => {
         ADD COLUMN IF NOT EXISTS required_forms      JSONB DEFAULT '[]';
     `);
 
-    // ── Products: migrate account_opening to savings ─────────────
-    await client.query(`
-      UPDATE products SET type = 'savings' WHERE type = 'account_opening';
-    `);
+    // account_opening was removed from product_type enum; no data migration needed
 
     // ── OTHER SERVICES ──────────────────────────────────────────
     await client.query(`
