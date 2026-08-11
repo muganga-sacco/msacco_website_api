@@ -15,8 +15,28 @@ const PORT = process.env.PORT || 6000;
 
 /* ── SECURITY ─────────────────────────────────────── */
 app.use(helmet({ contentSecurityPolicy: false }));
+
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",").map(o => o.trim()).filter(Boolean);
+
 app.use(cors({
-  origin: (process.env.ALLOWED_ORIGINS || "").split(",").map(o => o.trim()),
+  origin: (origin, callback) => {
+    // Allow requests with no origin (e.g. curl, mobile apps, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin '${origin}' not allowed`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+// Handle preflight OPTIONS requests for all routes (including /uploads)
+app.options("*", cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin '${origin}' not allowed`));
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
@@ -48,11 +68,11 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 /* ── STATIC FILES (uploads) ───────────────────────── */
-app.use("/uploads", (req, res, next) => {
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  next();
-}, express.static(path.join(__dirname, "..", "uploads")));
+// IMPORTANT: express.static is registered AFTER cors() so CORS headers are
+// already applied by the time the static middleware handles the request.
+// Do NOT set Access-Control-Allow-Origin manually here — that would bypass
+// the cors() middleware and break credentialed requests.
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 /* ── msacco CHECK ─────────────────────────────────── */
 app.get("/msacco", (req, res) => {
@@ -81,7 +101,8 @@ app.get("/", (req, res) => {
       guides:   "/api/guides",
       services: "/api/other-services",
       settings: "/api/settings",
-      contact:  "/api/contact",
+      contact:      "/api/contact",
+      examResults:  "/api/exam-results",
     },
   });
 });

@@ -14,8 +14,21 @@ const migrate = async () => {
       EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
       DO $$ BEGIN
-        CREATE TYPE product_type AS ENUM ('loan', 'savings');
-      EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+        -- Drop stale product_type enum if it has old values (e.g. account_opening)
+        -- Safe to drop here because products table hasn't been created yet in a fresh run
+        IF EXISTS (
+          SELECT 1 FROM pg_enum e
+          JOIN pg_type t ON t.oid = e.enumtypid
+          WHERE t.typname = 'product_type'
+            AND e.enumlabel = 'account_opening'
+        ) THEN
+          DROP TYPE IF EXISTS product_type CASCADE;
+        END IF;
+
+        IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'product_type') THEN
+          CREATE TYPE product_type AS ENUM ('loan', 'savings');
+        END IF;
+      END $$;
 
       DO $$ BEGIN
         CREATE TYPE employment_type AS ENUM ('full-time', 'part-time', 'contract', 'internship');
@@ -104,10 +117,7 @@ const migrate = async () => {
         ADD COLUMN IF NOT EXISTS required_forms      JSONB DEFAULT '[]';
     `);
 
-    // ── Products: migrate account_opening to savings ─────────────
-    await client.query(`
-      UPDATE products SET type = 'savings' WHERE type = 'account_opening';
-    `);
+    // account_opening was removed from product_type enum; no data migration needed
 
     // ── OTHER SERVICES ──────────────────────────────────────────
     await client.query(`
@@ -432,6 +442,25 @@ const migrate = async () => {
         other_docs_url      VARCHAR(500),
         created_at          TIMESTAMPTZ DEFAULT NOW()
       );
+    `);
+
+    // ── EXAM RESULTS ───────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS exam_results (
+        id           SERIAL PRIMARY KEY,
+        title        VARCHAR(255) NOT NULL,
+        category     VARCHAR(50)  NOT NULL CHECK (category IN ('written', 'oral')),
+        published_at DATE         NOT NULL,
+        is_latest    BOOLEAN      NOT NULL DEFAULT FALSE,
+        file_url     TEXT         NOT NULL,
+        is_active    BOOLEAN      NOT NULL DEFAULT TRUE,
+        created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_exam_results_category  ON exam_results(category);
+      CREATE INDEX IF NOT EXISTS idx_exam_results_active    ON exam_results(is_active);
+      CREATE INDEX IF NOT EXISTS idx_exam_results_published ON exam_results(published_at DESC);
     `);
 
     await client.query("COMMIT");
