@@ -1,14 +1,28 @@
+const path  = require("path");
+const fs    = require("fs");
 const { query } = require("../config/db");
 const { success, created, notFound, badRequest } = require("../utils/response");
 
-// GET /api/exam-results
-// Public — returns all active entries, optional ?category=written|oral
+// Build the public URL from a stored filename
+const toUrl = (filename) => `/uploads/${filename}`;
+
+// Delete a file from disk (best-effort, no crash if missing)
+const deleteFile = (fileUrl) => {
+  if (!fileUrl) return;
+  try {
+    const filename = path.basename(fileUrl);
+    const fullPath = path.join(__dirname, "..", "..", "uploads", filename);
+    if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+  } catch (_) { /* silent */ }
+};
+
+// ── GET /api/exam-results ────────────────────────────────────
+// Public — optional ?category=written|oral, ordered by published_at DESC
 const getAll = async (req, res, next) => {
   try {
     const { category } = req.query;
 
-    const validCategories = ["written", "oral"];
-    if (category && !validCategories.includes(category)) {
+    if (category && !["written", "oral"].includes(category)) {
       return badRequest(res, "category must be 'written' or 'oral'");
     }
 
@@ -33,30 +47,33 @@ const getAll = async (req, res, next) => {
   }
 };
 
-// POST /api/exam-results  (admin only)
+// ── POST /api/exam-results ───────────────────────────────────
+// Admin — multipart/form-data with file field "file"
 const create = async (req, res, next) => {
   try {
-    const { title, category, published_at, is_latest = false, file_url, is_active = true } = req.body;
+    const { title, category, published_at, is_latest = false, is_active = true } = req.body;
 
-    if (!title || !title.trim()) return badRequest(res, "title is required");
-    if (!category) return badRequest(res, "category is required ('written' or 'oral')");
-    if (!["written", "oral"].includes(category)) return badRequest(res, "category must be 'written' or 'oral'");
-    if (!published_at) return badRequest(res, "published_at is required");
-    if (!file_url || !file_url.trim()) return badRequest(res, "file_url is required");
+    if (!title || !title.trim())       return badRequest(res, "title is required");
+    if (!category)                     return badRequest(res, "category is required");
+    if (!["written", "oral"].includes(category))
+      return badRequest(res, "category must be 'written' or 'oral'");
+    if (!published_at)                 return badRequest(res, "published_at is required");
+    if (!req.file)                     return badRequest(res, "A file (PDF/DOC/DOCX) is required");
 
-    // If marking this entry as latest, unset is_latest on others of the same category
-    if (is_latest) {
-      await query(
-        "UPDATE exam_results SET is_latest = FALSE WHERE category = $1",
-        [category]
-      );
+    const file_url = toUrl(req.file.filename);
+    const latest   = is_latest === true || is_latest === "true";
+    const active   = is_active === true  || is_active === "true";
+
+    // Only one entry per category should be marked latest
+    if (latest) {
+      await query("UPDATE exam_results SET is_latest = FALSE WHERE category = $1", [category]);
     }
 
     const result = await query(
       `INSERT INTO exam_results (title, category, published_at, is_latest, file_url, is_active)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [title.trim(), category, published_at, is_latest, file_url.trim(), is_active]
+      [title.trim(), category, published_at, latest, file_url, active]
     );
 
     return created(res, result.rows[0], "Exam result created");
@@ -65,29 +82,43 @@ const create = async (req, res, next) => {
   }
 };
 
-// PUT /api/exam-results/:id  (admin only)
+// ── PUT /api/exam-results/:id ────────────────────────────────
+// Admin — file field "file" is optional; omit to keep existing file
 const update = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { title, category, published_at, is_latest, file_url, is_active } = req.body;
+    const { title, category, published_at, is_latest, is_active } = req.body;
 
-    // Validate category if provided
     if (category && !["written", "oral"].includes(category)) {
       return badRequest(res, "category must be 'written' or 'oral'");
     }
 
-    // Resolve the current record first so we know its category
+    // Fetch current record
     const current = await query("SELECT * FROM exam_results WHERE id = $1", [id]);
-    if (!current.rows.length) return notFound(res, "Exam result not found");
+    if (!current.rows.length) {
+      // New file was uploaded but the record doesn't exist — clean up
+      if (req.file) deleteFile(toUrl(req.file.filename));
+      return notFound(res, "Exam result not found");
+    }
 
     const resolvedCategory = category || current.rows[0].category;
+    const latest = is_latest !== undefined
+      ? (is_latest === true || is_latest === "true")
+      : current.rows[0].is_latest;
 
-    // If marking as latest, clear others in the same category
-    if (is_latest === true || is_latest === "true") {
+    // If marking as latest, unset others in same category
+    if (latest) {
       await query(
         "UPDATE exam_results SET is_latest = FALSE WHERE category = $1 AND id != $2",
         [resolvedCategory, id]
       );
+    }
+
+    // If a new file was uploaded, swap it and delete the old one
+    let file_url = current.rows[0].file_url;
+    if (req.file) {
+      deleteFile(current.rows[0].file_url);
+      file_url = toUrl(req.file.filename);
     }
 
     const result = await query(
@@ -95,8 +126,8 @@ const update = async (req, res, next) => {
         title        = COALESCE($1, title),
         category     = COALESCE($2, category),
         published_at = COALESCE($3, published_at),
-        is_latest    = COALESCE($4, is_latest),
-        file_url     = COALESCE($5, file_url),
+        is_latest    = $4,
+        file_url     = $5,
         is_active    = COALESCE($6, is_active)
        WHERE id = $7
        RETURNING *`,
@@ -104,9 +135,9 @@ const update = async (req, res, next) => {
         title ? title.trim() : null,
         category || null,
         published_at || null,
-        is_latest !== undefined ? Boolean(is_latest) : null,
-        file_url ? file_url.trim() : null,
-        is_active !== undefined ? Boolean(is_active) : null,
+        latest,
+        file_url,
+        is_active !== undefined ? (is_active === true || is_active === "true") : null,
         id,
       ]
     );
@@ -117,7 +148,8 @@ const update = async (req, res, next) => {
   }
 };
 
-// DELETE /api/exam-results/:id  (admin only — soft delete)
+// ── DELETE /api/exam-results/:id ─────────────────────────────
+// Admin — soft delete (is_active = false), file stays on disk
 const remove = async (req, res, next) => {
   try {
     const result = await query(
