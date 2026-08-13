@@ -18,29 +18,29 @@ app.use(helmet({ contentSecurityPolicy: false }));
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || "").split(",").map(o => o.trim()).filter(Boolean);
 
-app.use(cors({
+// In development, allow any localhost port automatically so you never have to
+// update ALLOWED_ORIGINS every time the Vite/webpack dev server changes ports.
+const isOriginAllowed = (origin) => {
+  if (!origin) return true; // curl, mobile apps, server-to-server
+  if (allowedOrigins.includes(origin)) return true;
+  if (process.env.NODE_ENV !== "production" && /^https?:\/\/localhost(:\d+)?$/.test(origin)) return true;
+  return false;
+};
+
+const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. curl, mobile apps, server-to-server)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (isOriginAllowed(origin)) return callback(null, true);
     callback(new Error(`CORS: origin '${origin}' not allowed`));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Handle preflight OPTIONS requests for all routes (including /uploads)
-app.options("*", cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS: origin '${origin}' not allowed`));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-}));
+app.options("*", cors(corsOptions));
 
 /* ── RATE LIMITING ────────────────────────────────── */
 const limiter = rateLimit({
@@ -68,10 +68,15 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 /* ── STATIC FILES (uploads) ───────────────────────── */
-// IMPORTANT: express.static is registered AFTER cors() so CORS headers are
-// already applied by the time the static middleware handles the request.
-// Do NOT set Access-Control-Allow-Origin manually here — that would bypass
-// the cors() middleware and break credentialed requests.
+// The `cors()` middleware above sets Access-Control-Allow-Origin correctly,
+// but Helmet sets Cross-Origin-Resource-Policy: same-origin by default.
+// That separate header causes ERR_BLOCKED_BY_RESPONSE.NotSameOrigin in the
+// browser even when CORS passes. Override it to "cross-origin" for this route
+// so the browser is allowed to use cross-origin image/file responses.
+app.use("/uploads", (req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+});
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 /* ── msacco CHECK ─────────────────────────────────── */
