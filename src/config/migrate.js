@@ -14,17 +14,7 @@ const migrate = async () => {
       EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
       DO $$ BEGIN
-        -- Drop stale product_type enum if it has old values (e.g. account_opening)
-        -- Safe to drop here because products table hasn't been created yet in a fresh run
-        IF EXISTS (
-          SELECT 1 FROM pg_enum e
-          JOIN pg_type t ON t.oid = e.enumtypid
-          WHERE t.typname = 'product_type'
-            AND e.enumlabel = 'account_opening'
-        ) THEN
-          DROP TYPE IF EXISTS product_type CASCADE;
-        END IF;
-
+        /* Safe check for product_type without destructive CASCADE drops */
         IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'product_type') THEN
           CREATE TYPE product_type AS ENUM ('loan', 'savings');
         END IF;
@@ -85,30 +75,30 @@ const migrate = async () => {
     // ── PRODUCTS ───────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS products (
-        id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        type          product_type NOT NULL,
-        title         VARCHAR(200) NOT NULL,
-        description   TEXT,
-        interest_rate NUMERIC(5,2) NOT NULL,
-        min_amount    BIGINT,
-        max_amount    BIGINT,
-        features      JSONB DEFAULT '[]',
-        is_featured   BOOLEAN DEFAULT FALSE,
+        id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        type           product_type NOT NULL,
+        title          VARCHAR(200) NOT NULL,
+        description    TEXT,
+        interest_rate  NUMERIC(5,2) NOT NULL,
+        min_amount     BIGINT,
+        max_amount     BIGINT,
+        features       JSONB DEFAULT '[]',
+        is_featured    BOOLEAN DEFAULT FALSE,
         featured_label VARCHAR(80),
-        icon          VARCHAR(100),
-        cta_label     VARCHAR(80) DEFAULT 'Apply Now',
-        is_active     BOOLEAN DEFAULT TRUE,
-        sort_order    INTEGER DEFAULT 0,
-        created_by    UUID REFERENCES users(id),
-        created_at    TIMESTAMPTZ DEFAULT NOW(),
-        updated_at    TIMESTAMPTZ DEFAULT NOW()
+        icon           VARCHAR(100),
+        cta_label      VARCHAR(80) DEFAULT 'Apply Now',
+        is_active      BOOLEAN DEFAULT TRUE,
+        sort_order     INTEGER DEFAULT 0,
+        created_by     UUID REFERENCES users(id),
+        created_at     TIMESTAMPTZ DEFAULT NOW(),
+        updated_at     TIMESTAMPTZ DEFAULT NOW()
       );
     `);
 
     // ── Products: add eligibility / documents / process / image ──────
     await client.query(`
       ALTER TABLE products
-        ADD COLUMN IF NOT EXISTS eligibility         JSONB DEFAULT '[]',
+        ADD COLUMN IF NOT EXISTS eligibility        JSONB DEFAULT '[]',
         ADD COLUMN IF NOT EXISTS required_documents  JSONB DEFAULT '[]',
         ADD COLUMN IF NOT EXISTS application_process TEXT,
         ADD COLUMN IF NOT EXISTS image_url           TEXT,
@@ -116,8 +106,6 @@ const migrate = async () => {
         ADD COLUMN IF NOT EXISTS benefits            JSONB DEFAULT '[]',
         ADD COLUMN IF NOT EXISTS required_forms      JSONB DEFAULT '[]';
     `);
-
-    // account_opening was removed from product_type enum; no data migration needed
 
     // ── OTHER SERVICES ──────────────────────────────────────────
     await client.query(`
@@ -458,9 +446,9 @@ const migrate = async () => {
       );
     `);
     await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_exam_results_category  ON exam_results(category);
-      CREATE INDEX IF NOT EXISTS idx_exam_results_active    ON exam_results(is_active);
-      CREATE INDEX IF NOT EXISTS idx_exam_results_published ON exam_results(published_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_exam_results_category   ON exam_results(category);
+      CREATE INDEX IF NOT EXISTS idx_exam_results_active     ON exam_results(is_active);
+      CREATE INDEX IF NOT EXISTS idx_exam_results_published  ON exam_results(published_at DESC);
     `);
 
     await client.query("COMMIT");
