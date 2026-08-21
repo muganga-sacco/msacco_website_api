@@ -51,6 +51,14 @@ router.post("/", protect, editorOrAdmin, [
     .isIn(["full-time","part-time","contract","internship"])
     .withMessage("Invalid employment type"),
   body("deadline").optional().isDate().withMessage("Invalid date format"),
+  body("max_age").optional({ nullable: true }).isInt({ min: 18, max: 99 }).withMessage("max_age must be between 18 and 99"),
+  body("salary_range").optional({ nullable: true }).isString(),
+  body("requirements").optional({ nullable: true }).isArray().withMessage("requirements must be an array"),
+  body("benefits").optional({ nullable: true }).isArray().withMessage("benefits must be an array"),
+  body("key_deliverables").optional({ nullable: true }).isArray().withMessage("key_deliverables must be an array"),
+  body("skills_competencies").optional({ nullable: true }).isArray().withMessage("skills_competencies must be an array"),
+  body("personal_attributes").optional({ nullable: true }).isArray().withMessage("personal_attributes must be an array"),
+  body("application_procedures").optional({ nullable: true }).isString(),
   validate,
 ], ctrl.create);
 
