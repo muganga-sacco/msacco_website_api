@@ -403,6 +403,10 @@ const migrate = async () => {
     await client.query(`ALTER TABLE news ADD COLUMN IF NOT EXISTS subsection VARCHAR(40)`);
     await client.query(`ALTER TABLE news ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)`);
     await client.query(`ALTER TABLE careers ADD COLUMN IF NOT EXISTS max_age INTEGER`);
+    await client.query(`ALTER TABLE careers ADD COLUMN IF NOT EXISTS key_deliverables      JSONB DEFAULT '[]'`);
+    await client.query(`ALTER TABLE careers ADD COLUMN IF NOT EXISTS skills_competencies   JSONB DEFAULT '[]'`);
+    await client.query(`ALTER TABLE careers ADD COLUMN IF NOT EXISTS personal_attributes   JSONB DEFAULT '[]'`);
+    await client.query(`ALTER TABLE careers ADD COLUMN IF NOT EXISTS application_procedures TEXT`);
 
     // ── JOB APPLICATIONS ─────────────────────────────────────────
     await client.query(`
