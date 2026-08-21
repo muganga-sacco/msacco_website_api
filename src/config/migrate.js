@@ -449,7 +449,6 @@ const migrate = async () => {
         features    JSONB        DEFAULT '[]',
         cta_label   VARCHAR(100),
         cta_link    VARCHAR(500),
-        is_featured BOOLEAN      DEFAULT FALSE,
         is_active   BOOLEAN      DEFAULT TRUE,
         sort_order  INTEGER      DEFAULT 0,
         created_by  UUID REFERENCES users(id),
