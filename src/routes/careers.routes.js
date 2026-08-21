@@ -32,6 +32,7 @@ router.post("/apply", (req, res, next) => {
     { name: "id_copy", maxCount: 1 },
     { name: "cv", maxCount: 1 },
     { name: "academic_paper", maxCount: 1 },
+    { name: "cover_letter", maxCount: 1 },
     { name: "other_documents", maxCount: 1 },
   ])(req, res, err => {
     if (err instanceof multer.MulterError)

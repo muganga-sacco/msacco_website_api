@@ -422,6 +422,7 @@ const migrate = async () => {
         id_file_url         VARCHAR(500) NOT NULL,
         cv_file_url         VARCHAR(500) NOT NULL,
         academic_file_url   VARCHAR(500) NOT NULL,
+        cover_letter_url    VARCHAR(500),
         reference_1_name    VARCHAR(200),
         reference_1_email   VARCHAR(200),
         reference_1_phone   VARCHAR(20),
@@ -434,6 +435,31 @@ const migrate = async () => {
         other_docs_url      VARCHAR(500),
         created_at          TIMESTAMPTZ DEFAULT NOW()
       );
+    `);
+
+    // ── DIGITAL SERVICES ───────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS digital_services (
+        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title       VARCHAR(200) NOT NULL,
+        description TEXT,
+        icon_bg     VARCHAR(20)  DEFAULT '#e8f0eb',
+        icon_color  VARCHAR(20)  DEFAULT '#2d6a4f',
+        image_url   TEXT,
+        features    JSONB        DEFAULT '[]',
+        cta_label   VARCHAR(100),
+        cta_link    VARCHAR(500),
+        is_featured BOOLEAN      DEFAULT FALSE,
+        is_active   BOOLEAN      DEFAULT TRUE,
+        sort_order  INTEGER      DEFAULT 0,
+        created_by  UUID REFERENCES users(id),
+        created_at  TIMESTAMPTZ  DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ  DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_digital_services_active ON digital_services(is_active);
+      CREATE INDEX IF NOT EXISTS idx_digital_services_sort   ON digital_services(sort_order);
     `);
 
     // ── EXAM RESULTS ───────────────────────────────────────────

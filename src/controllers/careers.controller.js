@@ -144,10 +144,11 @@ const apply = async (req, res, next) => {
     if (!phone && !email)
       return res.status(400).json({ success: false, message: "Phone or Email is required" });
 
-    const idFile       = req.files?.id_copy?.[0];
-    const cvFile       = req.files?.cv?.[0];
-    const academicFile = req.files?.academic_paper?.[0];
-    const otherFile    = req.files?.other_documents?.[0];
+    const idFile          = req.files?.id_copy?.[0];
+    const cvFile          = req.files?.cv?.[0];
+    const academicFile    = req.files?.academic_paper?.[0];
+    const coverLetterFile = req.files?.cover_letter?.[0];
+    const otherFile       = req.files?.other_documents?.[0];
 
     if (!idFile || !cvFile || !academicFile)
       return res.status(400).json({ success: false, message: "ID, CV, and Academic paper are required" });
@@ -156,18 +157,19 @@ const apply = async (req, res, next) => {
     const result = await query(
       `INSERT INTO job_applications
         (career_id, full_name, date_of_birth, phone, email, marital_status, gender,
-         id_file_url, cv_file_url, academic_file_url, other_docs_url,
+         id_file_url, cv_file_url, academic_file_url, cover_letter_url, other_docs_url,
          reference_1_name, reference_1_email, reference_1_phone,
          reference_2_name, reference_2_email, reference_2_phone,
          reference_3_name, reference_3_email, reference_3_phone)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
        RETURNING id`,
       [
         career_id, full_name, date_of_birth, phone||null, email||null, marital_status, gender,
         baseUrl + idFile.filename,
         baseUrl + cvFile.filename,
         baseUrl + academicFile.filename,
-        otherFile ? baseUrl + otherFile.filename : null,
+        coverLetterFile ? baseUrl + coverLetterFile.filename : null,
+        otherFile       ? baseUrl + otherFile.filename       : null,
         reference_1_name||null, reference_1_email||null, reference_1_phone||null,
         reference_2_name||null, reference_2_email||null, reference_2_phone||null,
         reference_3_name||null, reference_3_email||null, reference_3_phone||null,
