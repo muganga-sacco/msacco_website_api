@@ -13,6 +13,7 @@ router.use("/dashboard",  require("./dashboard.routes"));
 router.use("/upload",     require("./upload.routes"));
 router.use("/forms",      require("./forms.routes"));
 router.use("/contact",      require("./contact.routes"));
-router.use("/exam-results", require("./examResults.routes"));
+router.use("/exam-results",     require("./examResults.routes"));
+router.use("/digital-services", require("./digitalServices.routes"));
 
 module.exports = router;
