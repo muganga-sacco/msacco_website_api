@@ -227,6 +227,7 @@ const migrate = async () => {
         image_url     VARCHAR(500),
         is_featured   BOOLEAN DEFAULT FALSE,
         status        news_status DEFAULT 'draft',
+        sort_order    INTEGER DEFAULT 0,
         published_at  TIMESTAMPTZ,
         created_by    UUID REFERENCES users(id),
         created_at    TIMESTAMPTZ DEFAULT NOW(),
@@ -398,10 +399,12 @@ const migrate = async () => {
       CREATE INDEX IF NOT EXISTS idx_board_sort ON board_members(sort_order);
     `);
 
-    // ── NEWS: add section / subsection columns ──
+    // ── NEWS: add section / subsection / sort_order columns ──
     await client.query(`ALTER TABLE news ADD COLUMN IF NOT EXISTS section VARCHAR(40) DEFAULT 'news'`);
     await client.query(`ALTER TABLE news ADD COLUMN IF NOT EXISTS subsection VARCHAR(40)`);
     await client.query(`ALTER TABLE news ADD COLUMN IF NOT EXISTS file_url VARCHAR(500)`);
+    await client.query(`ALTER TABLE news ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_news_sort ON news(sort_order)`)
     await client.query(`ALTER TABLE careers ADD COLUMN IF NOT EXISTS max_age INTEGER`);
     await client.query(`ALTER TABLE careers ADD COLUMN IF NOT EXISTS key_deliverables      JSONB DEFAULT '[]'`);
     await client.query(`ALTER TABLE careers ADD COLUMN IF NOT EXISTS skills_competencies   JSONB DEFAULT '[]'`);
