@@ -5,7 +5,7 @@ const { paginate, buildPagination } = require("../utils/pagination");
 // GET /api/guides
 const getAll = async (req, res, next) => {
   try {
-    const { category, is_featured, search, page = 1, limit = 12 } = req.query;
+    const { category, is_featured, search, page = 1, limit = 20 } = req.query;
     const { offset, limit: lim, page: p } = paginate(page, limit);
 
     const conditions = ["is_active = TRUE"];
