@@ -483,6 +483,17 @@ const migrate = async () => {
       CREATE INDEX IF NOT EXISTS idx_exam_results_published  ON exam_results(published_at DESC);
     `);
 
+    // ── Products & Other Services: change min/max_amount to VARCHAR ──
+    await client.query(`
+      ALTER TABLE products
+        ALTER COLUMN min_amount TYPE VARCHAR(100) USING min_amount::TEXT,
+        ALTER COLUMN max_amount TYPE VARCHAR(100) USING max_amount::TEXT;
+    `);
+    await client.query(`
+      ALTER TABLE other_services
+        ALTER COLUMN max_amount TYPE VARCHAR(100) USING max_amount::TEXT;
+    `);
+
     await client.query("COMMIT");
     console.log("✅ All migrations completed successfully!");
   } catch (err) {
