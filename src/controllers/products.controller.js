@@ -60,13 +60,18 @@ const create = async (req, res, next) => {
 const update = async (req, res, next) => {
   try {
     const { title, description, interest_rate, min_amount, max_amount, features, is_featured, featured_label, icon, cta_label, is_active, sort_order, eligibility, required_documents, application_process, image_url, targeted_customers, benefits, required_forms } = req.body;
+
+    // Normalize min_amount / max_amount: keep null if not provided, store as string otherwise
+    const minAmt = min_amount !== undefined && min_amount !== null && min_amount !== "" ? String(min_amount) : null;
+    const maxAmt = max_amount !== undefined && max_amount !== null && max_amount !== "" ? String(max_amount) : null;
+
     const result = await query(
       `UPDATE products SET
         title              = COALESCE($1, title),
         description        = COALESCE($2, description),
         interest_rate      = COALESCE($3, interest_rate),
-        min_amount         = COALESCE($4, min_amount),
-        max_amount         = COALESCE($5, max_amount),
+        min_amount         = CASE WHEN $4::TEXT IS NOT NULL THEN $4 ELSE min_amount END,
+        max_amount         = CASE WHEN $5::TEXT IS NOT NULL THEN $5 ELSE max_amount END,
         features           = COALESCE($6, features),
         is_featured        = COALESCE($7, is_featured),
         featured_label     = COALESCE($8, featured_label),
@@ -84,7 +89,7 @@ const update = async (req, res, next) => {
         updated_at         = NOW()
        WHERE id = $20
        RETURNING *`,
-      [title, description, interest_rate, min_amount, max_amount,
+      [title, description, interest_rate, minAmt, maxAmt,
        features ? JSON.stringify(features) : null,
        is_featured, featured_label, icon, cta_label, is_active, sort_order,
        eligibility ? JSON.stringify(eligibility) : null,
