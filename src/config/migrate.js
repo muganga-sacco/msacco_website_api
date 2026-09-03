@@ -494,6 +494,16 @@ const migrate = async () => {
         ALTER COLUMN max_amount TYPE VARCHAR(100) USING max_amount::TEXT;
     `);
 
+    // ── Products & Other Services: change interest_rate to VARCHAR ──
+    await client.query(`
+      ALTER TABLE products
+        ALTER COLUMN interest_rate TYPE VARCHAR(50) USING interest_rate::TEXT;
+    `);
+    await client.query(`
+      ALTER TABLE other_services
+        ALTER COLUMN interest_rate TYPE VARCHAR(50) USING interest_rate::TEXT;
+    `);
+
     await client.query("COMMIT");
     console.log("✅ All migrations completed successfully!");
   } catch (err) {
