@@ -43,12 +43,16 @@ const getOne = async (req, res, next) => {
 // POST /api/products
 const create = async (req, res, next) => {
   try {
-    const { type, title, description, interest_rate, min_amount, max_amount, features, is_featured, featured_label, icon, cta_label, sort_order, eligibility, required_documents, application_process, image_url, targeted_customers, benefits, required_forms } = req.body;
+    const { type, title, description, interest_rate, interest_period, min_amount, max_amount, features, is_featured, featured_label, icon, cta_label, sort_order, eligibility, required_documents, application_process, image_url, targeted_customers, benefits, required_forms } = req.body;
+    // Normalise interest_rate: keep 0 as-is, convert empty string to null
+    const interestRateValue = (interest_rate === "" || interest_rate === undefined) ? null : interest_rate;
+    const interestPeriodValue = (interest_period === "" || interest_period === undefined) ? null : interest_period;
+
     const result = await query(
-      `INSERT INTO products (type, title, description, interest_rate, min_amount, max_amount, features, is_featured, featured_label, icon, cta_label, sort_order, created_by, eligibility, required_documents, application_process, image_url, targeted_customers, benefits, required_forms)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+      `INSERT INTO products (type, title, description, interest_rate, interest_period, min_amount, max_amount, features, is_featured, featured_label, icon, cta_label, sort_order, created_by, eligibility, required_documents, application_process, image_url, targeted_customers, benefits, required_forms)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
        RETURNING *`,
-      [type, title, description, interest_rate, min_amount, max_amount, JSON.stringify(features || []), is_featured || false, featured_label, icon, cta_label || "Apply Now", sort_order || 0, req.user.id,
+      [type, title, description, interestRateValue, interestPeriodValue, min_amount, max_amount, JSON.stringify(features || []), is_featured || false, featured_label, icon, cta_label || "Apply Now", sort_order || 0, req.user.id,
        JSON.stringify(eligibility || []), JSON.stringify(required_documents || []), application_process || null, image_url || null,
        JSON.stringify(targeted_customers || []), JSON.stringify(benefits || []), JSON.stringify(required_forms || [])]
     );
@@ -66,10 +70,11 @@ const update = async (req, res, next) => {
 
     // All updatable fields
     const allowedFields = [
-      "title", "description", "interest_rate", "min_amount", "max_amount",
-      "features", "is_featured", "featured_label", "icon", "cta_label",
-      "is_active", "sort_order", "eligibility", "required_documents",
-      "application_process", "image_url", "targeted_customers", "benefits", "required_forms"
+      "type", "title", "description", "interest_rate", "interest_period",
+      "min_amount", "max_amount", "features", "is_featured", "featured_label",
+      "icon", "cta_label", "is_active", "sort_order", "eligibility",
+      "required_documents", "application_process", "image_url",
+      "targeted_customers", "benefits", "required_forms"
     ];
 
     const setClauses = [];

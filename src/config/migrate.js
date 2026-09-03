@@ -504,6 +504,20 @@ const migrate = async () => {
         ALTER COLUMN interest_rate TYPE VARCHAR(50) USING interest_rate::TEXT;
     `);
 
+    // ── Products: make interest_rate nullable, add interest_period ──
+    await client.query(`
+      ALTER TABLE products
+        ALTER COLUMN interest_rate DROP NOT NULL;
+    `);
+    await client.query(`
+      ALTER TABLE products
+        ADD COLUMN IF NOT EXISTS interest_period VARCHAR(50);
+    `);
+    await client.query(`
+      ALTER TABLE other_services
+        ALTER COLUMN interest_rate DROP NOT NULL;
+    `);
+
     await client.query("COMMIT");
     console.log("✅ All migrations completed successfully!");
   } catch (err) {
