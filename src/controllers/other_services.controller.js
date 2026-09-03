@@ -29,7 +29,7 @@ const create = async (req, res, next) => {
     const result = await query(
       `INSERT INTO other_services (title, description, interest_rate, max_amount, features, eligibility, required_documents, application_process, is_featured, image_url, sort_order, created_by, targeted_customers, benefits, required_forms)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-      [title, description, interest_rate || 0, max_amount || null,
+      [title, description, interest_rate || null, max_amount || null,
        JSON.stringify(features || []), JSON.stringify(eligibility || []), JSON.stringify(required_documents || []),
        application_process || null, is_featured || false, image_url || null, sort_order || 0, req.user.id,
        JSON.stringify(targeted_customers || []), JSON.stringify(benefits || []), JSON.stringify(required_forms || [])]
