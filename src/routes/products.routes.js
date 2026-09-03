@@ -7,7 +7,7 @@ const { validate } = require("../middleware/errorHandler");
 const productRules = [
   body("type").isIn(["loan", "savings"]).withMessage("Type must be loan or savings"),
   body("title").trim().notEmpty().withMessage("Title is required"),
-  body("interest_rate").trim().notEmpty().withMessage("Interest rate is required"),
+  body("interest_rate").optional({ nullable: true, checkFalsy: false }),
   validate,
 ];
 
